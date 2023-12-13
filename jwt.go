@@ -1,116 +1,66 @@
 package googleAuthIDTokenVerifier
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"errors"
-	"strings"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/exp/slices"
 	"time"
-
-	"bytes"
-
-	"fmt"
-
-	"golang.org/x/oauth2/jws"
 )
 
 var (
 	nowFn = time.Now
 )
 
-func parseJWT(token string) (*jws.Header, *ClaimSet, error) {
-	s := strings.Split(token, ".")
-	if len(s) != 3 {
-		return nil, nil, errors.New("Invalid token received")
-	}
-	decodedHeader, err := base64.RawURLEncoding.DecodeString(s[0])
-	if err != nil {
-		return nil, nil, err
-	}
-	header := &jws.Header{}
-	err = json.NewDecoder(bytes.NewBuffer(decodedHeader)).Decode(header)
-	if err != nil {
-		return nil, nil, err
-	}
-	claimSet, err := Decode(token)
-	if err != nil {
-		return nil, nil, err
-	}
-	return header, claimSet, nil
-}
-
-// Decode returns ClaimSet
-func Decode(token string) (*ClaimSet, error) {
-	s := strings.Split(token, ".")
-	if len(s) != 3 {
-		return nil, ErrInvalidToken
-	}
-	decoded, err := base64.RawURLEncoding.DecodeString(s[1])
+func VerifySignedJWTWithCerts(token string, certs *Certs, allowedAuds []string, issuers []string) (*ClaimSet, error) {
+	claimSet, err := jwt.ParseWithClaims(token, &ClaimSet{}, func(token *jwt.Token) (interface{}, error) {
+		kid, vl := token.Header["kid"].(string)
+		if !vl {
+			return nil, ErrInvalidToken
+		}
+		key, found := certs.Keys[kid]
+		if found {
+			return key, nil
+		}
+		return nil, ErrPublicKeyNotFound
+	}, jwt.WithLeeway(time.Duration(ClockSkew.Seconds())*time.Second), jwt.WithIssuedAt(), jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, err
 	}
-	c := &ClaimSet{}
-	err = json.NewDecoder(bytes.NewBuffer(decoded)).Decode(c)
-	return c, err
-}
 
-// VerifySignedJWTWithCerts is golang port of OAuth2Client.prototype.verifySignedJwtWithCerts
-func VerifySignedJWTWithCerts(token string, certs *Certs, allowedAuds []string, issuers []string, maxExpiry time.Duration) error {
-	header, claimSet, err := parseJWT(token)
+	Iss, err := claimSet.Claims.GetIssuer()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	key := certs.Keys[header.KeyID]
-	if key == nil {
-		return ErrPublicKeyNotFound
-	}
-	err = jws.Verify(token, key)
+	Aud, err := claimSet.Claims.GetAudience()
 	if err != nil {
-		return ErrWrongSignature
-	}
-	if claimSet.Iat < 1 {
-		return ErrNoIssueTimeInToken
-	}
-	if claimSet.Exp < 1 {
-		return ErrNoExpirationTimeInToken
-	}
-	now := nowFn()
-	if claimSet.Exp > now.Unix()+int64(maxExpiry.Seconds()) {
-		return ErrExpirationTimeTooFarInFuture
-	}
-
-	earliest := claimSet.Iat - int64(ClockSkew.Seconds())
-	latest := claimSet.Exp + int64(ClockSkew.Seconds())
-
-	if now.Unix() < earliest {
-		return ErrTokenUsedTooEarly
-	}
-
-	if now.Unix() > latest {
-		return ErrTokenUsedTooLate
+		return nil, err
 	}
 
 	found := false
 	for _, issuer := range issuers {
-		if issuer == claimSet.Iss {
+		if issuer == Iss {
 			found = true
 			break
 		}
 	}
 	if !found {
-		return fmt.Errorf("Wrong issuer: %s", claimSet.Iss)
+		return nil, ErrInvalidIssuer
 	}
 
 	audFound := false
 	for _, aud := range allowedAuds {
-		if aud == claimSet.Aud {
+		if slices.Contains(Aud, aud) {
 			audFound = true
 			break
 		}
 	}
 	if !audFound {
-		return fmt.Errorf("Wrong aud: %s", claimSet.Aud)
+		return nil, ErrInvalidAudience
 	}
 
-	return nil
+	claims, vl := claimSet.Claims.(*ClaimSet)
+	if !vl {
+		return nil, ErrInvalidToken
+	}
+
+	return claims, nil
 }

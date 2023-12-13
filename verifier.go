@@ -3,9 +3,6 @@ package googleAuthIDTokenVerifier
 import "time"
 
 var (
-	// MaxTokenLifetime is one day
-	MaxTokenLifetime = time.Second * 86400
-
 	// ClockSkew - five minutes
 	ClockSkew = time.Minute * 5
 
@@ -19,9 +16,14 @@ var (
 type Verifier struct{}
 
 func (v *Verifier) VerifyIDToken(idToken string, audience []string) error {
+	_, err := v.ClaimIDToken(idToken, audience)
+	return err
+}
+
+func (v *Verifier) ClaimIDToken(idToken string, audience []string) (*ClaimSet, error) {
 	certs, err := getFederatedSignonCerts()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return VerifySignedJWTWithCerts(idToken, certs, audience, Issuers, MaxTokenLifetime)
+	return VerifySignedJWTWithCerts(idToken, certs, audience, Issuers)
 }

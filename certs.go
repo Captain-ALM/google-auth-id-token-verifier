@@ -23,7 +23,7 @@ var (
 	googleOAuth2FederatedSignonCertsURL = "https://www.googleapis.com/oauth2/v3/certs"
 )
 
-type key struct {
+type Key struct {
 	Kty string `json:"kty"`
 	Alg string `json:"alg"`
 	Use string `json:"use"`
@@ -33,7 +33,7 @@ type key struct {
 }
 
 type response struct {
-	Keys []*key `json:"keys"`
+	Keys []*Key `json:"keys"`
 }
 
 func getFederatedSignonCerts() (*Certs, error) {
