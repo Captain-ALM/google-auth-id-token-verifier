@@ -9,17 +9,16 @@ Verify idtoken without making http request to tokeninfo API.
 ```go
 
 import (
-    "github.com/futurenda/google-auth-id-token-verifier"
+    "golang.local/google-auth-id-token-verifier"
 )
 
 v := googleAuthIDTokenVerifier.Verifier{}
 aud := "xxxxxx-yyyyyyy.apps.googleusercontent.com"
-err := v.VerifyIDToken(TOKEN, []string{
+claimSet ,err := v.ClaimIDToken(TOKEN, []string{
     aud,
 })
 if err == nil {
-    claimSet, err := googleAuthIDTokenVerifier.Decode(TOKEN)
-    // claimSet.Iss,claimSet.Email ... (See claimset.go)
+    // claimSet.Email ... (See claimset.go)
 }
 ```
 
@@ -33,11 +32,9 @@ if err == nil {
 - Check Issuer
 - Check Audience
 
-## Deps
-
-- golang.org/x/oauth2/jws
-
 ## See also
 
 - http://stackoverflow.com/questions/36716117/validating-google-sign-in-id-token-in-go#
 - https://github.com/GoogleIdTokenVerifier/GoogleIdTokenVerifier
+
+## Patches applied by Captain ALM
