@@ -46,6 +46,7 @@ func getFederatedSignonCerts() (*Certs, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	cacheControl := resp.Header.Get("cache-control")
 	cacheAge := int64(7200) // Set default cacheAge to 2 hours
 	if len(cacheControl) > 0 {
