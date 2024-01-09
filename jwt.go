@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func VerifySignedJWTWithCerts(token string, certs *Certs, allowedAuds []string, issuers []string) (*ClaimSet, error) {
+func VerifySignedJWTWithCerts(token string, certs *Certs, allowedAuds []string, issuers []string, skew time.Duration) (*ClaimSet, error) {
 	claimSet, err := jwt.ParseWithClaims(token, &ClaimSet{}, func(token *jwt.Token) (interface{}, error) {
 		kid, vl := token.Header["kid"].(string)
 		if !vl {
@@ -17,7 +17,7 @@ func VerifySignedJWTWithCerts(token string, certs *Certs, allowedAuds []string, 
 			return key, nil
 		}
 		return nil, ErrPublicKeyNotFound
-	}, jwt.WithLeeway(time.Duration(ClockSkew.Seconds())), jwt.WithIssuedAt(), jwt.WithExpirationRequired())
+	}, jwt.WithLeeway(time.Duration(skew.Seconds())), jwt.WithIssuedAt(), jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, err
 	}

@@ -62,5 +62,5 @@ func (v *Verifier) ClaimIDToken(idToken string, audience []string) (*ClaimSet, e
 	if err != nil {
 		return nil, err
 	}
-	return VerifySignedJWTWithCerts(idToken, certs, audience, Issuers)
+	return VerifySignedJWTWithCerts(idToken, certs, audience, v.Issuers, v.ClockSkew)
 }
